@@ -1,0 +1,181 @@
+topics:
+  - id: hla_antigen
+    label: "HLA & apresentação antigênica"
+    icon: "🧬"
+    keywords:
+      "HLA": 2.0
+      "HLA-DR": 3.0
+      "HLA-DRB1": 4.0
+      "MHC class II": 3.0
+      "major histocompatibility complex": 3.0
+      "antigen presentation": 3.5
+      "peptide binding": 3.0
+      "immunopeptidome": 3.5
+      "epitope": 2.0
+      "T cell receptor": 2.0
+
+  - id: ebv_virology
+    label: "EBV & virologia"
+    icon: "🦠"
+    keywords:
+      "Epstein-Barr": 4.0
+      "Epstein Barr": 4.0
+      "EBV": 4.0
+      "EBNA1": 4.0
+      "EBNA-1": 4.0
+      "infectious mononucleosis": 3.0
+      "viral infection": 1.5
+      "herpesvirus": 2.0
+      "molecular mimicry": 3.0
+
+  - id: immunology
+    label: "Imunologia & patogênese"
+    icon: "🧫"
+    keywords:
+      "T cell": 2.0
+      "B cell": 2.0
+      "microglia": 2.0
+      "astrocyte": 1.5
+      "cytokine": 1.5
+      "autoimmune": 2.0
+      "autoimmunity": 2.0
+      "inflammation": 1.5
+      "neuroinflammation": 2.5
+      "immune response": 1.5
+      "Th17": 2.5
+      "regulatory T": 2.0
+      "blood-brain barrier": 2.0
+      "blood brain barrier": 2.0
+
+  - id: genetics
+    label: "Genética & epigenética"
+    icon: "🧬"
+    keywords:
+      "genome-wide association": 4.0
+      "GWAS": 4.0
+      "genetic risk": 3.0
+      "polygenic": 3.0
+      "variant": 1.5
+      "polymorphism": 2.0
+      "SNP": 2.0
+      "epigenetic": 2.5
+      "methylation": 2.0
+      "chromatin": 2.0
+      "transcriptomic": 2.0
+      "gene expression": 1.5
+
+  - id: biomarkers_omics
+    label: "Biomarcadores & ômicas"
+    icon: "🔬"
+    keywords:
+      "biomarker": 3.0
+      "neurofilament": 3.0
+      "NfL": 3.0
+      "GFAP": 3.0
+      "proteomic": 2.5
+      "metabolomic": 2.5
+      "lipidomic": 2.5
+      "single-cell": 2.5
+      "single cell": 2.5
+      "RNA-seq": 2.5
+      "multi-omics": 3.0
+      "multiomics": 3.0
+
+  - id: neurodegeneration
+    label: "Neurodegeneração & remielinização"
+    icon: "🧠"
+    keywords:
+      "neurodegeneration": 3.0
+      "axonal": 2.0
+      "myelin": 2.0
+      "demyelination": 3.0
+      "remyelination": 4.0
+      "oligodendrocyte": 3.0
+      "neuronal loss": 2.5
+      "synapse": 2.0
+      "mitochondria": 2.0
+      "oxidative stress": 2.0
+
+  - id: therapy_trials
+    label: "Tratamento & ensaios clínicos"
+    icon: "💊"
+    keywords:
+      "clinical trial": 3.0
+      "randomized": 3.0
+      "placebo": 2.0
+      "treatment": 1.5
+      "therapy": 1.5
+      "disease-modifying": 3.0
+      "disease modifying": 3.0
+      "ocrelizumab": 3.0
+      "ofatumumab": 3.0
+      "natalizumab": 3.0
+      "fingolimod": 3.0
+      "cladribine": 3.0
+      "siponimod": 3.0
+      "BTK inhibitor": 3.0
+      "CAR-T": 3.0
+      "stem cell transplantation": 3.0
+
+  - id: imaging
+    label: "Imagem & neuroimagem"
+    icon: "🩻"
+    keywords:
+      "magnetic resonance": 3.0
+      "MRI": 3.0
+      "PET": 2.0
+      "neuroimaging": 3.0
+      "lesion": 1.5
+      "cortical thickness": 2.5
+      "brain atrophy": 2.5
+      "diffusion tensor": 2.5
+      "susceptibility": 1.5
+      "paramagnetic rim": 3.5
+
+  - id: epidemiology
+    label: "Epidemiologia & fatores de risco"
+    icon: "📊"
+    keywords:
+      "epidemiology": 3.0
+      "prevalence": 2.5
+      "incidence": 2.5
+      "risk factor": 2.5
+      "vitamin D": 2.0
+      "smoking": 2.0
+      "obesity": 2.0
+      "sex difference": 2.0
+      "geographic": 1.5
+      "environmental exposure": 2.0
+
+  - id: computational
+    label: "Computacional & estrutural"
+    icon: "💻"
+    keywords:
+      "molecular dynamics": 4.0
+      "molecular docking": 4.0
+      "structural biology": 3.0
+      "protein structure": 2.5
+      "AlphaFold": 3.0
+      "machine learning": 3.0
+      "deep learning": 3.0
+      "artificial intelligence": 3.0
+      "bioinformatics": 3.0
+      "computational": 2.0
+      "simulation": 2.0
+      "in silico": 3.0
+
+  - id: clinical_course
+    label: "Curso clínico & prognóstico"
+    icon: "🩺"
+    keywords:
+      "relapse": 2.0
+      "progression": 2.5
+      "disability": 2.5
+      "EDSS": 3.0
+      "progressive multiple sclerosis": 3.0
+      "relapsing-remitting": 3.0
+      "relapsing remitting": 3.0
+      "prognosis": 2.5
+      "cognitive": 2.0
+      "fatigue": 2.0
+      "quality of life": 1.5

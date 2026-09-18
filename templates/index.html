@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}Radar EM — Literatura recente{% endblock %}
+
+{% block content %}
+<header class="hero">
+  <div>
+    <div class="eyebrow">LITERATURA CIENTÍFICA • PUBMED</div>
+    <h1>Radar EM</h1>
+    <p class="hero-copy">
+      Painel local para acompanhar artigos recentes sobre esclerose múltipla,
+      classificar por tema e reduzir o ruído da triagem bibliográfica.
+    </p>
+    <div class="period-badge" aria-label="Período atualmente exibido">
+      <span class="period-badge-dot"></span>
+      {{ period_label }}
+    </div>
+  </div>
+
+  <div class="update-box">
+    <div class="status-dot"></div>
+    <div>
+      <div class="small-label">Última atualização</div>
+      <strong>
+        {% if stats.last_run %}
+          {{ stats.last_run.finished_at[:16].replace("T", " ") }}
+        {% else %}
+          ainda não executada
+        {% endif %}
+      </strong>
+      <div class="small-label update-window">Coleta ao atualizar: {{ update_days }} dia{% if update_days != 1 %}s{% endif %}</div>
+    </div>
+    <button id="updateButton" class="button primary" data-days="{{ update_days }}">
+      Atualizar agora
+    </button>
+  </div>
+</header>
+
+<section class="stats" aria-label="Resumo do período">
+  <article class="stat">
+    <span class="stat-number">{{ stats.total }}</span>
+    <span class="stat-label">artigos no período</span>
+  </article>
+  <article class="stat">
+    <span class="stat-number">{{ stats.unread }}</span>
+    <span class="stat-label">não lidos no período</span>
+  </article>
+  <article class="stat">
+    <span class="stat-number">{{ stats.favorites }}</span>
+    <span class="stat-label">favoritos no período</span>
+  </article>
+  <article class="stat">
+    <span class="stat-number">{{ stats.by_topic|length }}</span>
+    <span class="stat-label">tópicos ativos</span>
+  </article>
+</section>
+
+<section class="toolbar panel">
+  <form method="get" class="filter-form">
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input
+        type="search"
+        name="q"
+        value="{{ search }}"
+        placeholder="Buscar por título, resumo ou periódico..."
+        aria-label="Buscar artigos"
+      >
+    </div>
+
+    <select id="periodSelect" name="days" aria-label="Filtrar por período">
+      {% for value, label in period_options %}
+        <option value="{{ 'all' if value is none else value }}" {% if selected_days == value %}selected{% endif %}>
+          {{ label }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <select name="topic" aria-label="Filtrar por tópico">
+      <option value="">Todos os tópicos</option>
+      {% for t in topics %}
+        <option value="{{ t.id }}" {% if selected_topic == t.id %}selected{% endif %}>
+          {{ t.icon }} {{ t.label }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <label class="check">
+      <input type="checkbox" name="unread" value="1" {% if unread_only %}checked{% endif %}>
+      Não lidos
+    </label>
+
+    <label class="check">
+      <input type="checkbox" name="favorites" value="1" {% if favorites_only %}checked{% endif %}>
+      Favoritos
+    </label>
+
+    <button class="button" type="submit">Aplicar</button>
+    <a class="button ghost" href="{{ url_for('reset_filters') }}">Limpar</a>
+  </form>
+
+  <div class="filter-summary">
+    <span>
+      Mostrando <strong>{{ visible_count }}</strong>
+      {% if visible_count == 1 %}artigo{% else %}artigos{% endif %}
+      {% if visible_count != stats.total %}após os filtros{% else %}neste período{% endif %}.
+    </span>
+    {% if stats.all_time_total != stats.total %}
+      <span class="filter-summary-muted">Banco histórico: {{ stats.all_time_total }} artigos.</span>
+    {% endif %}
+  </div>
+</section>
+
+<nav class="topic-strip" aria-label="Tópicos">
+  <a
+    class="topic-pill {% if not selected_topic %}active{% endif %}"
+    href="{{ url_for('index', days=selected_days_arg, q=search or None, favorites='1' if favorites_only else None, unread='1' if unread_only else None) }}"
+  >
+    Todos <span>{{ stats.total }}</span>
+  </a>
+
+  {% for t in topics %}
+    {% set count = stats.by_topic.get(t.id, 0) %}
+    <a
+      class="topic-pill {% if selected_topic == t.id %}active{% endif %}"
+      href="{{ url_for('index', topic=t.id, days=selected_days_arg, q=search or None, favorites='1' if favorites_only else None, unread='1' if unread_only else None) }}"
+    >
+      {{ t.icon }} {{ t.label }} <span>{{ count }}</span>
+    </a>
+  {% endfor %}
+
+  {% set general_count = stats.by_topic.get('general', 0) %}
+  {% if general_count %}
+    <a
+      class="topic-pill {% if selected_topic == 'general' %}active{% endif %}"
+      href="{{ url_for('index', topic='general', days=selected_days_arg, q=search or None, favorites='1' if favorites_only else None, unread='1' if unread_only else None) }}"
+    >
+      📚 Geral <span>{{ general_count }}</span>
+    </a>
+  {% endif %}
+</nav>
+
+{% if not groups %}
+<section class="empty panel">
+  <div class="empty-icon">⌁</div>
+  <h2>Nenhum artigo para exibir</h2>
+  <p>
+    Não há artigos que correspondam aos filtros em <strong>{{ period_label|lower }}</strong>.
+    Tente ampliar o período ou limpar os filtros.
+  </p>
+  <div class="empty-actions">
+    <a class="button" href="{{ url_for('index', days='30') }}">Ver últimos 30 dias</a>
+    <a class="button ghost" href="{{ url_for('index', days='all') }}">Ver todo o histórico</a>
+  </div>
+</section>
+{% endif %}
+
+{% for topic, articles in groups %}
+<section class="topic-section">
+  <div class="section-heading">
+    <div>
+      <div class="eyebrow">{{ topic.icon }} TÓPICO</div>
+      <h2>{{ topic.label }}</h2>
+    </div>
+    <div class="section-count">{{ articles|length }} artigo{% if articles|length != 1 %}s{% endif %}</div>
+  </div>
+
+  <div class="cards">
+    {% for a in articles %}
+    <article class="article-card {% if a.is_read %}is-read{% endif %}" data-pmid="{{ a.pmid }}">
+      <div class="card-topline">
+        <span class="score {% if a.relevance_score >= 80 %}score-high{% endif %}">
+          relevância {{ "%.0f"|format(a.relevance_score) }}
+        </span>
+        <span class="date">{{ a.pub_date or "data não informada" }}</span>
+      </div>
+
+      <h3>{{ a.title }}</h3>
+
+      <div class="meta">
+        {% if a.journal %}<span class="journal">{{ a.journal }}</span>{% endif %}
+        {% if a.authors %}
+          <span>{{ a.authors[:3]|join(", ") }}{% if a.authors|length > 3 %} et al.{% endif %}</span>
+        {% endif %}
+      </div>
+
+      {% if a.abstract %}
+        <p class="abstract">{{ a.abstract }}</p>
+      {% else %}
+        <p class="abstract muted">Resumo não disponível no registro recuperado.</p>
+      {% endif %}
+
+      {% set hits = a.matched_keywords.get(a.primary_topic, []) %}
+      {% if hits %}
+      <div class="tags">
+        {% for tag in hits[:6] %}
+          <span>{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if a.publication_types %}
+      <div class="types">
+        {% for ptype in a.publication_types[:3] %}
+          <span>{{ ptype }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="card-actions">
+        <a class="button compact" href="{{ a.pubmed_url }}" target="_blank" rel="noopener">
+          PubMed ↗
+        </a>
+        {% if a.doi_url %}
+          <a class="button compact ghost" href="{{ a.doi_url }}" target="_blank" rel="noopener">
+            DOI ↗
+          </a>
+        {% endif %}
+        <button
+          class="icon-button favorite {% if a.is_favorite %}active{% endif %}"
+          data-action="favorite"
+          title="Favoritar"
+          aria-label="Favoritar artigo"
+        >
+          ★
+        </button>
+        <button
+          class="icon-button read {% if a.is_read %}active{% endif %}"
+          data-action="read"
+          title="Marcar como lido"
+          aria-label="Marcar como lido"
+        >
+          ✓
+        </button>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+
+<footer>
+  <p>
+    Fonte bibliográfica: NCBI PubMed. O escore de relevância é apenas uma ferramenta
+    de triagem local; não representa qualidade metodológica, impacto ou força de evidência.
+  </p>
+  <p>
+    O filtro temporal usa a data de publicação disponível no registro do PubMed.
+    Registros sem dia exato podem não aparecer em janelas muito curtas.
+  </p>
+  <p>
+    Metadados e resumos recuperados via NCBI E-utilities; resumos podem estar sujeitos
+    a direitos autorais dos respectivos autores/editores.
+  </p>
+</footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+{% endblock %}
