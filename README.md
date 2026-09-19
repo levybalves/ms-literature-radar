@@ -1,101 +1,108 @@
-# Radar EM — Monitor de literatura científica em esclerose múltipla
+# Radar EM — monitor de literatura científica em esclerose múltipla
 
-O **Radar EM** é uma aplicação web local desenvolvida em **Python, Flask e SQLite** para acompanhar literatura científica recente sobre **esclerose múltipla (EM)** a partir do PubMed.
+O **Radar EM** é uma aplicação web local em **Python + Flask + SQLite** para acompanhar literatura científica recente sobre **esclerose múltipla (EM)**.
 
-A aplicação consulta registros bibliográficos por meio das **NCBI E-utilities**, armazena os artigos localmente, classifica os trabalhos em tópicos de interesse e disponibiliza uma interface web para triagem e acompanhamento da literatura.
+A descoberta é feita por **três fontes complementares**:
 
-O objetivo é facilitar o monitoramento contínuo de novas publicações, reduzindo o trabalho manual de busca e permitindo organizar os artigos por área temática, período, relevância, status de leitura e favoritos.
+- **PubMed / NCBI**;
+- **Crossref**;
+- **Europe PMC**.
+
+Os registros encontrados são consolidados em um único banco local, deduplicados principalmente por **PMID, DOI e PMCID**, classificados por tópicos e exibidos em um painel para triagem bibliográfica.
+
+O projeto também oferece enriquecimento opcional com metadados estruturados e com **BeautifulSoup** para páginas HTML públicas de editoras, sem contornar paywalls, autenticação, CAPTCHA ou `robots.txt`.
+
+---
+
+## Por que usar várias fontes?
+
+Um artigo pode aparecer no site da editora ou no Crossref antes de receber um PMID ou aparecer na busca do PubMed. Por isso, o Radar EM não depende de uma única base para descobrir trabalhos recentes.
+
+```text
+                  PubMed
+                    │
+                  Crossref
+                    │
+                Europe PMC
+                    │
+                    ▼
+             normalização comum
+                    │
+                    ▼
+               deduplicação
+          PMID / DOI / PMCID / título
+                    │
+                    ▼
+              enriquecimento
+                    │
+                    ▼
+            classificação temática
+                    │
+                    ▼
+                  SQLite
+                    │
+                    ▼
+                   Flask
+                    │
+                    ▼
+                Radar EM
+```
+
+Se o mesmo artigo for primeiro descoberto pelo Crossref e depois aparecer no PubMed, o Radar tenta **atualizar o mesmo registro**, em vez de criar uma duplicata.
+
+## Filtro de especificidade para esclerose múltipla
+
+A descoberta multi-fonte aumenta a sensibilidade, mas pode trazer registros que apenas mencionam esclerose múltipla de forma periférica. Por isso, antes de entrar no feed principal, cada registro passa por uma etapa separada de **elegibilidade para EM**.
+
+O filtro considera principalmente:
+
+- `multiple sclerosis` no título;
+- MeSH específico de esclerose múltipla;
+- keywords/author keywords específicas;
+- posição e repetição da expressão no abstract;
+- acrônimos específicos como `RRMS`, `SPMS` e `PPMS`.
+
+O termo curto **`MS` isolado não é usado como evidência**, porque pode significar mass spectrometry, manuscript, milliseconds e outros termos.
+
+Os registros recebem um estado:
+
+- **high** — alta especificidade para EM;
+- **moderate** — evidência suficiente para entrar no feed;
+- **pending** — metadados ainda insuficientes, comum em artigos Crossref muito recentes;
+- **excluded** — evidência insuficiente após avaliação;
+- **manual** — artigo importado explicitamente por DOI pelo usuário enquanto os metadados ainda são incompletos.
+
+Por padrão, o painel mostra apenas `high`, `moderate` e `manual`. Pendentes e excluídos ficam fora do feed principal, mas podem ser auditados pelos filtros do painel.
+
+Um artigo recém-publicado sem abstract pode permanecer como `pending`; quando PMID, abstract ou keywords forem adicionados posteriormente, ele é reavaliado e pode passar automaticamente para `high` ou `moderate`.
 
 ---
 
 ## Funcionalidades
 
-O Radar EM inclui:
-
-- consulta automatizada ao PubMed;
-- busca por período de publicação;
-- recuperação em lote por meio do NCBI EFetch;
-- armazenamento local utilizando SQLite;
-- deduplicação automática por PMID;
-- classificação temática baseada em palavras-chave ponderadas;
-- classificação multi-tópico;
-- identificação de um tópico principal para cada artigo;
-- escore de relevância para auxiliar a triagem;
-- busca textual em títulos, resumos e periódicos;
-- filtro por período;
-- filtro por tópico;
-- filtro de artigos não lidos;
-- sistema de favoritos;
-- marcação de artigos como lidos;
-- links diretos para PubMed;
-- links diretos para DOI quando disponíveis;
-- estatísticas do conjunto de artigos;
-- histórico local cumulativo;
-- interface web responsiva;
-- layout escuro;
-- tratamento de erros temporários da API;
-- mecanismo de retry/backoff em respostas HTTP como `429` e erros de servidor.
-
----
-
-## Visão geral
-
-O fluxo do Radar EM pode ser representado da seguinte forma:
-
-```text
-                PubMed / NCBI
-                      │
-                      ▼
-                   ESearch
-                      │
-                 lista de PMIDs
-                      │
-                      ▼
-                   EFetch
-                      │
-             metadados + abstract
-                      │
-                      ▼
-             classificação temática
-                      │
-                      ▼
-             escore de relevância
-                      │
-                      ▼
-                  SQLite
-                      │
-                      ▼
-                  Flask
-                      │
-                      ▼
-             Interface web local
-```
-
-A etapa de coleta e a etapa de visualização são independentes.
-
-Os artigos permanecem armazenados no banco local e podem posteriormente ser visualizados utilizando diferentes janelas temporais.
-
----
-
-## Fonte dos dados
-
-O Radar EM utiliza o **PubMed**, por meio das **NCBI E-utilities**, como fonte principal de metadados bibliográficos.
-
-A busca central utiliza registros associados à esclerose múltipla, considerando termos MeSH e ocorrências em título ou resumo.
-
-Exemplo conceitual da consulta:
-
-```text
-"multiple sclerosis"[MeSH Terms]
-OR
-"multiple sclerosis"[Title/Abstract]
-```
-
-O projeto não realiza scraping direto das páginas das editoras.
-
-Essa abordagem foi escolhida porque páginas de periódicos podem mudar sua estrutura HTML, utilizar JavaScript dinâmico, cookies e diferentes sistemas de acesso.
-
-A API do NCBI fornece uma interface estruturada e mais adequada para recuperação programática de registros científicos.
+- descoberta recente no PubMed;
+- descoberta recente no Crossref;
+- descoberta recente no Europe PMC;
+- tolerância a falha parcial: uma fonte indisponível não impede necessariamente as demais;
+- deduplicação entre fontes;
+- atualização posterior de PMID/DOI/PMCID quando novos identificadores aparecem;
+- importação direta por DOI;
+- armazenamento local em SQLite;
+- migração automática de bancos criados por versões anteriores do Radar EM;
+- classificação por tópicos usando título, resumo, MeSH, keywords e metadados complementares;
+- filtro de especificidade para EM antes do feed principal;
+- escore independente de especificidade para EM;
+- escore de relevância para triagem temática;
+- filtros por período, tópico, fonte, especificidade para EM, texto, favoritos, não lidos, Open Access e registros enriquecidos;
+- favoritos e status de leitura persistentes;
+- links para PubMed, DOI, editora e texto completo quando disponíveis;
+- página individual de detalhes de cada artigo;
+- enriquecimento por Crossref e Europe PMC;
+- BeautifulSoup opcional para HTML público da editora;
+- detecção de links de material suplementar quando explicitamente expostos no HTML;
+- detecção de graphical abstract quando indicado nos metadados HTML;
+- interface responsiva e escura;
+- histórico de execuções e contagem por fonte.
 
 ---
 
@@ -115,7 +122,12 @@ ms-literature-radar/
 │   ├── __init__.py
 │   ├── classifier.py
 │   ├── config.py
+│   ├── crossref.py
 │   ├── db.py
+│   ├── enrichment.py
+│   ├── eligibility.py
+│   ├── europe_pmc.py
+│   ├── merge.py
 │   ├── models.py
 │   ├── pipeline.py
 │   └── pubmed.py
@@ -125,11 +137,15 @@ ms-literature-radar/
 │
 ├── templates/
 │   ├── base.html
-│   └── index.html
+│   ├── index.html
+│   └── article.html
 │
 ├── static/
 │   ├── app.js
 │   └── style.css
+│
+├── tests/
+│   └── ...
 │
 └── data/
     └── .gitkeep
@@ -139,93 +155,61 @@ ms-literature-radar/
 
 # Requisitos
 
-Recomenda-se:
+Recomenda-se **Python 3.10 ou superior**. O desenvolvimento e os testes foram preparados para funcionar com Python moderno, incluindo Python 3.12.
 
-- Python 3.10 ou superior;
-- Python 3.12 para reproduzir o ambiente utilizado no desenvolvimento;
-- acesso à internet para consultar o PubMed;
-- navegador web moderno.
-
-As principais dependências são:
+Dependências principais:
 
 ```text
 Flask>=3.0,<4
 requests>=2.32,<3
 PyYAML>=6.0,<7
 python-dotenv>=1.0,<2
+beautifulsoup4>=4.12,<5
 ```
 
 ---
 
 # Instalação
 
-## Opção 1 — Conda
-
-Crie um ambiente:
+## Conda
 
 ```bash
 conda create -n radar-em python=3.12 -y
-```
-
-Ative:
-
-```bash
 conda activate radar-em
 ```
 
-As dependências podem ser instaladas pelo `conda-forge`:
+Instalação pelo `conda-forge`:
 
 ```bash
 conda install -c conda-forge \
   "flask>=3,<4" \
   "requests>=2.32,<3" \
   "pyyaml>=6,<7" \
-  "python-dotenv>=1,<2"
+  "python-dotenv>=1,<2" \
+  "beautifulsoup4>=4.12,<5"
 ```
 
-Também é possível utilizar o `pip` dentro do ambiente:
+Ou com `pip`:
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
----
+## venv
 
-## Opção 2 — venv
-
-No Linux ou WSL:
+Linux / WSL:
 
 ```bash
 python3 -m venv .venv
-```
-
-Ative:
-
-```bash
 source .venv/bin/activate
-```
-
-Instale as dependências:
-
-```bash
 python -m pip install -r requirements.txt
 ```
 
-No Windows:
+Windows:
 
 ```powershell
 python -m venv .venv
-```
-
-Depois:
-
-```powershell
 .venv\Scripts\activate
-```
-
-e:
-
-```powershell
 python -m pip install -r requirements.txt
 ```
 
@@ -233,174 +217,200 @@ python -m pip install -r requirements.txt
 
 # Configuração
 
-O projeto utiliza um arquivo `.env` para armazenar configurações locais.
+Copie o exemplo:
 
-No Linux ou WSL:
+Linux / WSL:
 
 ```bash
 cp .env.example .env
 ```
 
-No Windows:
+Windows:
 
 ```powershell
 copy .env.example .env
 ```
 
-Um exemplo de configuração é:
-
-```env
-PUBMED_EMAIL=seu_email@exemplo.com
-
-NCBI_API_KEY=
-
-LOOKBACK_DAYS=45
-PUBMED_RETMAX=250
-PUBMED_BATCH_SIZE=150
-
-DEFAULT_VIEW_DAYS=5
-
-SECRET_KEY=troque-esta-chave
-
-HOST=127.0.0.1
-PORT=5050
-
-DEBUG=false
-```
-
----
-
-## PUBMED_EMAIL
-
-Recomenda-se informar um endereço de e-mail válido:
-
-```env
-PUBMED_EMAIL=seu_email@exemplo.com
-```
-
-O NCBI recomenda que aplicações que utilizam as E-utilities sejam identificadas.
-
----
-
-## NCBI_API_KEY
-
-A chave da API é opcional:
-
-```env
-NCBI_API_KEY=
-```
-
-Caso possua uma chave do NCBI, ela pode ser adicionada:
-
-```env
-NCBI_API_KEY=sua_chave
-```
-
-Nunca publique sua chave de API em um repositório público.
-
-O arquivo `.env` deve permanecer listado no `.gitignore`.
-
----
-
-## Porta do servidor
-
-A porta pode ser definida no `.env`.
-
 Exemplo:
 
 ```env
+PUBMED_EMAIL=seu_email@exemplo.com
+NCBI_API_KEY=
+CROSSREF_EMAIL=seu_email@exemplo.com
+
+DISCOVERY_QUERY=multiple sclerosis
+PUBMED_DISCOVERY_ENABLED=true
+CROSSREF_DISCOVERY_ENABLED=true
+EUROPE_PMC_DISCOVERY_ENABLED=true
+
+PUBMED_RETMAX=250
+PUBMED_BATCH_SIZE=150
+CROSSREF_RETMAX=250
+EUROPE_PMC_RETMAX=250
+CROSSREF_DISCOVERY_INCLUDE_CREATED=true
+
+MS_ELIGIBILITY_ENABLED=true
+MS_HIGH_THRESHOLD=9
+MS_MODERATE_THRESHOLD=6
+MS_STORE_PENDING=true
+MS_REASSESS_ON_STARTUP=true
+
+LOOKBACK_DAYS=45
+DEFAULT_VIEW_DAYS=5
+
+ENRICHMENT_ENABLED=true
+CROSSREF_ENABLED=true
+EUROPE_PMC_ENABLED=true
+PUBLISHER_HTML_ENABLED=false
+ENRICHMENT_MAX_ARTICLES=50
+ENRICHMENT_TIMEOUT=20
+ENRICHMENT_PAUSE_SECONDS=0.15
+HTML_MAX_BYTES=2000000
+
+SECRET_KEY=troque-esta-chave
+HOST=127.0.0.1
 PORT=5050
+DEBUG=false
 ```
 
-Nesse caso, o painel ficará disponível em:
-
-```text
-http://127.0.0.1:5050
-```
-
-Se preferir outra porta:
-
-```env
-PORT=5000
-```
-
-ou:
-
-```env
-PORT=8000
-```
+Nunca envie `.env` ou uma chave de API para um repositório público.
 
 ---
 
-# Primeira coleta de artigos
+# Atualizar a literatura
 
-Para preencher o banco inicialmente com os artigos encontrados nos últimos 60 dias:
-
-```bash
-python app.py --update --days 60
-```
-
-Um resultado possível é:
-
-```text
-{'ok': True, 'articles_seen': 250, 'inserted': 250, 'updated': 0}
-```
-
-Os campos representam:
-
-- `articles_seen`: número de registros recuperados do PubMed;
-- `inserted`: artigos novos adicionados ao banco;
-- `updated`: registros que já existiam e foram atualizados.
-
----
-
-# Atualizando a literatura
-
-Para consultar publicações recentes:
+Para procurar artigos nos últimos 7 dias nas três fontes:
 
 ```bash
 python app.py --update --days 7
 ```
 
-Outros exemplos:
+Exemplo de saída:
 
-```bash
-python app.py --update --days 1
+```text
+{
+  'ok': True,
+  'articles_seen': 87,
+  'raw_seen': 142,
+  'inserted': 21,
+  'updated': 66,
+  'deduplicated': 55,
+  'ms_eligible': 74,
+  'ms_high': 52,
+  'ms_moderate': 22,
+  'ms_pending': 8,
+  'excluded_not_ms': 5,
+  'sources': {
+    'PubMed': 48,
+    'Crossref': 57,
+    'Europe PMC': 37
+  }
+}
 ```
 
-```bash
-python app.py --update --days 5
-```
-
-```bash
-python app.py --update --days 15
-```
-
-```bash
-python app.py --update --days 30
-```
-
-A atualização não apaga o histórico.
-
-Registros que já existem são identificados pelo PMID e atualizados em vez de duplicados.
+`raw_seen` é a soma bruta dos registros vindos das fontes. `articles_seen` é o total restante depois da consolidação entre fontes.
 
 ---
 
-# Executando o painel
+## Selecionar fontes no terminal
 
-Inicie o servidor:
+Somente PubMed:
+
+```bash
+python app.py --update --days 7 --sources pubmed
+```
+
+PubMed + Crossref:
+
+```bash
+python app.py --update --days 7 --sources pubmed,crossref
+```
+
+Crossref + Europe PMC:
+
+```bash
+python app.py --update --days 7 --sources crossref,europe_pmc
+```
+
+Todas:
+
+```bash
+python app.py --update --days 7 --sources pubmed,crossref,europe_pmc
+```
+
+---
+
+# Reavaliar registros já existentes
+
+Ao abrir um banco antigo, registros ainda não avaliados são classificados automaticamente. Se você alterar os limiares de especificidade ou quiser refazer a triagem de todo o banco, use:
+
+```bash
+python app.py --reassess-ms
+```
+
+Exemplo de saída:
+
+```text
+{'high': 120, 'moderate': 34, 'pending': 8, 'excluded': 19, 'manual': 1}
+```
+
+A reavaliação **não apaga** registros. Ela apenas atualiza o estado de especificidade; o feed padrão passa a esconder os que forem `pending` ou `excluded`.
+
+---
+
+# Importar diretamente por DOI
+
+Se você conhece um DOI e quer colocá-lo no Radar imediatamente, mesmo antes de ele aparecer no PubMed:
+
+```bash
+python app.py --add-doi 10.1021/acsomega.6c06047
+```
+
+Também existe um campo **“Importar DOI”** no próprio painel web.
+
+O Radar consulta o Crossref e tenta complementar o registro com Europe PMC. Se posteriormente surgir um PMID para o mesmo DOI, a atualização normal tenta anexá-lo ao registro existente.
+
+Para incluir HTML público da editora na importação:
+
+```bash
+python app.py --add-doi 10.1021/acsomega.6c06047 --publisher-html
+```
+
+A importação direta é uma ação explícita do usuário. Se os metadados ainda não forem suficientes para provar a relação com EM, o artigo é mantido como `manual` até que novas informações permitam reclassificá-lo.
+
+---
+
+# Enriquecimento
+
+Atualização normal com enriquecimento estruturado:
+
+```bash
+python app.py --update --days 7 --enrich
+```
+
+Sem enriquecimento adicional:
+
+```bash
+python app.py --update --days 7 --no-enrich
+```
+
+Com HTML público / BeautifulSoup:
+
+```bash
+python app.py --update --days 7 --publisher-html
+```
+
+BeautifulSoup é uma camada complementar. O código verifica `robots.txt` e não tenta contornar mecanismos de acesso.
+
+---
+
+# Executar o painel
 
 ```bash
 python app.py
 ```
 
-Se o `.env` contiver:
-
-```env
-PORT=5050
-```
-
-abra no navegador:
+Com a configuração padrão:
 
 ```text
 http://127.0.0.1:5050
@@ -414,47 +424,28 @@ http://localhost:5050
 
 ---
 
-# Filtro temporal
+# Filtros do painel
 
-Por padrão, o painel pode ser configurado para mostrar os últimos 5 dias:
+O painel permite filtrar por:
 
-```env
-DEFAULT_VIEW_DAYS=5
-```
+- período;
+- tópico;
+- fonte de descoberta;
+- texto;
+- não lidos;
+- favoritos;
+- Open Access;
+- metadados enriquecidos.
 
-A interface permite selecionar diferentes períodos, como:
+Períodos disponíveis incluem hoje, 3, 5, 7, 15, 30, 60 e 90 dias, além de todo o histórico.
 
-- hoje;
-- últimos 3 dias;
-- últimos 5 dias;
-- últimos 7 dias;
-- últimos 15 dias;
-- últimos 30 dias;
-- últimos 60 dias;
-- últimos 90 dias;
-- todo o histórico.
-
-Também é possível informar o período diretamente na URL.
-
-### Últimos 5 dias
+Exemplo:
 
 ```text
 http://127.0.0.1:5050/?days=5
 ```
 
-### Últimos 7 dias
-
-```text
-http://127.0.0.1:5050/?days=7
-```
-
-### Últimos 30 dias
-
-```text
-http://127.0.0.1:5050/?days=30
-```
-
-### Todo o histórico
+Todo o histórico:
 
 ```text
 http://127.0.0.1:5050/?days=all
@@ -462,109 +453,97 @@ http://127.0.0.1:5050/?days=all
 
 ---
 
-# Coleta e visualização são independentes
+# Como funciona a deduplicação
 
-É importante distinguir a janela de coleta da janela de visualização.
+O Radar tenta reconhecer o mesmo trabalho usando, nesta ordem, identificadores bibliográficos fortes:
 
-O comando:
-
-```bash
-python app.py --update --days 7
-```
-
-consulta o PubMed e adiciona ou atualiza artigos encontrados nos últimos sete dias.
-
-Já:
-
-```text
-/?days=5
-```
-
-apenas modifica quais registros armazenados são exibidos no painel.
-
-Nenhum artigo é removido do banco ao alterar o filtro de visualização.
-
-Por exemplo:
-
-```text
-PubMed
-   │
-   │ coleta: últimos 7 dias
-   ▼
-SQLite
-   │
-   ├── visualização: últimos 5 dias
-   ├── visualização: últimos 30 dias
-   └── visualização: todo o histórico
-```
-
----
-
-# Pesquisa textual
-
-O campo de pesquisa permite localizar artigos utilizando termos encontrados em:
-
-- título;
-- resumo;
-- nome do periódico.
-
-A pesquisa pode ser combinada com os demais filtros.
-
----
-
-# Filtros por tópico
-
-Os artigos são classificados em categorias temáticas.
-
-A configuração padrão inclui:
-
-- HLA e apresentação antigênica;
-- EBV e virologia;
-- imunologia e patogênese;
-- genética e epigenética;
-- biomarcadores e ômicas;
-- neurodegeneração e remielinização;
-- tratamento e ensaios clínicos;
-- imagem e neuroimagem;
-- epidemiologia e fatores de risco;
-- biologia computacional e estrutural;
-- curso clínico e prognóstico.
-
-Os identificadores internos incluem:
-
-```text
-hla_antigen
-ebv_virology
-immunology
-genetics
-biomarkers_omics
-neurodegeneration
-therapy_trials
-imaging
-epidemiology
-computational
-clinical_course
-```
-
-É possível utilizar esses identificadores diretamente na URL.
+1. PMID;
+2. DOI normalizado;
+3. PMCID;
+4. fingerprint de título e ano como fallback conservador.
 
 Exemplo:
 
 ```text
-http://127.0.0.1:5050/?days=30&topic=ebv_virology
+Crossref
+DOI 10.xxxx/abc
+      │
+      ▼
+registro criado
+      │
+      │ dias depois
+      ▼
+PubMed
+PMID 12345678
+DOI 10.xxxx/abc
+      │
+      ▼
+mesmo DOI detectado
+      │
+      ▼
+registro atualizado
+PMID anexado
 ```
 
-Outro exemplo:
-
-```text
-http://127.0.0.1:5050/?days=30&topic=hla_antigen
-```
+Favoritos e status de leitura são preservados quando um registro existente é atualizado.
 
 ---
 
-# Personalização dos tópicos
+# Como cada fonte é utilizada
 
-Os tópicos são configurados em:
+## PubMed
+
+Usa NCBI ESearch + EFetch para recuperar PMID, título, resumo, autores, periódico, MeSH, keywords e identificadores relacionados.
+
+## Crossref
+
+É utilizado tanto para **descoberta** quanto para enriquecimento. A busca usa a expressão bibliográfica configurada e janelas de data. Por padrão, o Radar consulta trabalhos com data de publicação recente e também registros recentemente depositados no Crossref.
+
+Isso ajuda a encontrar artigos que já possuem DOI e registro de editora, mas ainda não receberam PMID.
+
+## Europe PMC
+
+Também participa da descoberta. Pode complementar DOI/PMID/PMCID, resumo, keywords, MeSH, Open Access e links de texto completo, conforme disponíveis.
+
+## BeautifulSoup
+
+É utilizado apenas quando explicitamente ativado. Extrai metadados públicos e genéricos do HTML, como:
+
+- `citation_*`;
+- JSON-LD de `ScholarlyArticle`;
+- keywords;
+- instituições;
+- links públicos de PDF/full text indicados no HTML;
+- links de material suplementar;
+- graphical abstract quando marcado explicitamente.
+
+---
+
+# Banco SQLite e migração
+
+O banco fica em:
+
+```text
+data/radar.sqlite3
+```
+
+O projeto detecta a estrutura anterior baseada em PMID como chave primária e migra os registros para um identificador interno independente da fonte.
+
+Isso é necessário porque artigos descobertos no Crossref podem ainda não possuir PMID.
+
+Antes de substituir o projeto, é recomendável fazer backup:
+
+```bash
+cp data/radar.sqlite3 data/radar.sqlite3.backup
+```
+
+O banco não deve ser enviado ao GitHub.
+
+---
+
+# Personalizar tópicos
+
+Edite:
 
 ```text
 config/topics.yaml
@@ -576,471 +555,87 @@ Exemplo:
 - id: ebv_virology
   label: "EBV & virologia"
   icon: "🦠"
-
   keywords:
     "Epstein-Barr": 4.0
-    "EBV": 4.0
     "EBNA1": 4.0
-    "infectious mononucleosis": 3.0
     "molecular mimicry": 3.0
 ```
 
-Cada expressão possui um peso.
-
-Valores maiores indicam maior importância daquele termo para a classificação temática.
-
----
-
-# Classificação temática
-
-A classificação considera diferentes componentes dos registros bibliográficos:
-
-- título;
-- resumo;
-- termos MeSH;
-- palavras-chave.
-
-Correspondências no título recebem maior peso.
-
-Termos MeSH e keywords também recebem peso elevado por serem metadados mais controlados.
-
-Correspondências apenas no resumo contribuem com peso menor.
-
-Conceitualmente:
-
-```text
-termo no título
-      │
-      ▼
-peso elevado
-
-termo em MeSH / keywords
-      │
-      ▼
-peso intermediário-alto
-
-termo no resumo
-      │
-      ▼
-peso padrão
-```
-
-Um artigo pode apresentar correspondência com vários tópicos.
-
-O tópico com maior pontuação é utilizado como categoria principal para organização do painel.
+A classificação utiliza título, resumo, MeSH, keywords, subjects e outros metadados disponíveis.
 
 ---
 
 # Escore de relevância
 
-Cada artigo recebe um escore utilizado exclusivamente para auxiliar a triagem bibliográfica.
+O escore serve apenas para **triagem bibliográfica**.
 
-O escore considera fatores como:
+Ele combina:
 
-- pertinência à busca sobre esclerose múltipla;
-- correspondência com os tópicos configurados;
-- força das palavras-chave encontradas;
+- pertinência ao universo de busca;
+- força da correspondência temática;
 - recência;
 - tipo de publicação.
 
-O escore é limitado a uma escala de 0 a 100.
-
-Ele **não representa**:
-
-- qualidade metodológica;
-- força de evidência;
-- fator de impacto;
-- qualidade do periódico;
-- importância científica definitiva;
-- recomendação de leitura.
-
-O objetivo é apenas ajudar a priorizar artigos durante a triagem.
-
----
-
-# Favoritos
-
-Os artigos podem ser marcados como favoritos diretamente no painel.
-
-Essa informação fica armazenada no SQLite e continua disponível após reiniciar a aplicação.
-
----
-
-# Artigos lidos e não lidos
-
-O Radar EM também permite marcar artigos como lidos.
-
-É possível filtrar apenas os registros ainda não revisados.
-
-Isso permite utilizar o painel como uma pequena ferramenta de acompanhamento contínuo de literatura.
-
----
-
-# Banco de dados
-
-O banco local fica em:
-
-```text
-data/radar.sqlite3
-```
-
-Ele armazena:
-
-- PMID;
-- DOI;
-- título;
-- resumo;
-- periódico;
-- data de publicação;
-- autores;
-- tipos de publicação;
-- termos MeSH;
-- keywords;
-- classificação temática;
-- escore de relevância;
-- favoritos;
-- status de leitura;
-- data de primeira identificação;
-- data da última atualização.
-
----
-
-# Backup do banco
-
-Antes de alterações importantes no projeto, recomenda-se copiar o banco:
-
-```bash
-cp data/radar.sqlite3 data/radar.sqlite3.backup
-```
-
-O banco de dados não deve ser incluído no GitHub.
-
-O `.gitignore` deve conter:
-
-```gitignore
-data/*.sqlite3
-data/*.sqlite3-wal
-data/*.sqlite3-shm
-data/*.db
-```
-
----
-
-# Limite de registros por consulta
-
-A quantidade máxima de registros recuperados pode ser configurada por:
-
-```env
-PUBMED_RETMAX=250
-```
-
-Por exemplo:
-
-```env
-PUBMED_RETMAX=500
-```
-
-ou:
-
-```env
-PUBMED_RETMAX=1000
-```
-
-Esse valor determina quantos registros podem ser recuperados em uma execução da busca.
+Ele **não mede** qualidade metodológica, força de evidência, fator de impacto ou importância científica definitiva.
 
 ---
 
 # Atualização diária
 
-Uma estratégia prática é consultar diariamente os últimos sete dias:
+Uma rotina prática é:
 
 ```bash
 python app.py --update --days 7
 ```
 
-A sobreposição temporal ajuda a recuperar trabalhos que tenham sido adicionados ou atualizados no PubMed com algum atraso.
-
-Como o banco utiliza o PMID como identificador, artigos já existentes não são duplicados.
+A sobreposição de sete dias ajuda a recuperar registros que entram nas bases com algum atraso. A deduplicação evita que isso gere cópias do mesmo trabalho.
 
 ---
 
-# Automação no Linux / WSL
+# Testes
 
-É possível utilizar `cron`.
-
-Exemplo:
-
-```cron
-15 7 * * * /caminho/python /caminho/ms-literature-radar/app.py --update --days 7
-```
-
-Esse exemplo executa a atualização diariamente às 07:15.
-
-Certifique-se de informar o caminho correto do Python utilizado pelo ambiente.
-
-Exemplo:
+Se `pytest` estiver instalado:
 
 ```bash
-which python
+python -m pytest -q
 ```
 
----
+Os testes cobrem, entre outros pontos:
 
-# Automação no Windows
-
-Também é possível utilizar o **Agendador de Tarefas do Windows**.
-
-Programa:
-
-```text
-C:\caminho\para\python.exe
-```
-
-Argumentos:
-
-```text
-C:\caminho\para\ms-literature-radar\app.py --update --days 7
-```
-
-Diretório inicial:
-
-```text
-C:\caminho\para\ms-literature-radar
-```
-
----
-
-# Observações sobre datas
-
-O filtro utiliza a data de publicação disponível no registro recuperado do PubMed.
-
-Nem todos os registros apresentam o mesmo nível de precisão.
-
-Alguns podem conter:
-
-```text
-2026-09-18
-```
-
-outros:
-
-```text
-2026-09
-```
-
-e alguns registros podem possuir apenas:
-
-```text
-2026
-```
-
-Por esse motivo, janelas temporais muito curtas podem não incluir determinados registros quando o PubMed ainda não disponibilizou uma data completa.
-
-Também é importante distinguir:
-
-- data de publicação;
-- data de indexação no PubMed;
-- data de publicação eletrônica;
-- data da edição impressa.
-
-O Radar utiliza a melhor data de publicação disponível no registro recuperado.
-
----
-
-# Segurança e privacidade
-
-O Radar EM é executado localmente.
-
-O histórico de leitura, favoritos e banco de artigos permanecem no computador do usuário.
-
-O projeto não envia essas informações para um servidor próprio.
-
-Entretanto, durante a atualização, requisições são realizadas aos serviços do NCBI/PubMed para recuperar os registros bibliográficos.
-
-Nunca publique arquivos contendo:
-
-```text
-.env
-```
-
-ou:
-
-```text
-NCBI_API_KEY
-```
-
-em repositórios públicos.
-
----
-
-# Arquivos que não devem ser enviados ao GitHub
-
-Um `.gitignore` recomendado é:
-
-```gitignore
-# Environment
-.env
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual environments
-.venv/
-venv/
-env/
-
-# Conda
-.conda/
-
-# Database
-data/*.sqlite3
-data/*.sqlite3-wal
-data/*.sqlite3-shm
-data/*.db
-
-# Keep directory
-!data/.gitkeep
-
-# Cache
-.pytest_cache/
-.coverage
-htmlcov/
-
-# IDEs
-.vscode/
-.idea/
-
-# Operating system
-.DS_Store
-Thumbs.db
-
-# Temporary files
-*.log
-*.tmp
-*.bak
-```
-
----
-
-# Possíveis extensões
-
-A arquitetura permite adicionar novas funcionalidades futuramente, como:
-
-- Europe PMC como fonte complementar;
-- integração com Crossref;
-- feeds RSS de periódicos;
-- exportação BibTeX;
-- exportação CSV;
-- integração com Zotero;
-- gráficos de número de publicações por período;
-- tendências temáticas;
-- comparação entre tópicos;
-- classificação semântica por embeddings;
-- modelos de linguagem para resumo de artigos;
-- identificação automática de artigos altamente relacionados;
-- alertas por e-mail;
-- alertas por Telegram;
-- painel de periódicos mais frequentes;
-- acompanhamento de autores;
-- acompanhamento de termos específicos;
-- busca por DOI;
-- classificação por tipo de estudo;
-- análise de tendências temporais;
-- integração com Europe PMC para informações de acesso aberto;
-- sincronização opcional com bancos bibliográficos externos.
+- parsing de Crossref;
+- parsing de Europe PMC;
+- deduplicação por DOI;
+- consolidação Crossref → PubMed;
+- migração do banco legado;
+- filtro temporal;
+- parser HTML do BeautifulSoup.
 
 ---
 
 # Limitações
 
-O Radar EM deve ser entendido como uma ferramenta de apoio à triagem bibliográfica.
-
-A classificação automática depende das palavras-chave e pesos definidos em:
-
-```text
-config/topics.yaml
-```
-
-Portanto, artigos multidisciplinares podem ser atribuídos a um tópico principal mesmo quando apresentam forte relação com outras categorias.
-
-O escore de relevância também não substitui avaliação crítica do artigo.
-
-A ausência de um artigo no painel não significa necessariamente ausência do trabalho no PubMed ou na literatura científica.
-
-O conjunto recuperado depende:
-
-- da consulta configurada;
-- do período utilizado;
-- do limite de registros;
-- da disponibilidade dos metadados;
-- do estado de indexação no PubMed.
+- nenhuma fonte garante indexação instantânea de todos os artigos;
+- os metadados disponíveis variam entre editoras e bases;
+- Crossref pode não conter resumo ou keywords para determinados trabalhos;
+- Europe PMC e PubMed têm seus próprios tempos de indexação;
+- páginas de editoras podem mudar a estrutura HTML;
+- o módulo BeautifulSoup é best-effort;
+- a classificação temática depende da qualidade dos metadados e das regras em `topics.yaml`;
+- o Radar não substitui estratégias formais de busca usadas em revisões sistemáticas.
 
 ---
 
-# Uso científico
+# Segurança e privacidade
 
-O Radar EM foi desenvolvido para facilitar o acompanhamento de literatura científica sobre esclerose múltipla.
+O Radar EM é executado localmente. Favoritos, status de leitura e o banco bibliográfico ficam no computador do usuário.
 
-A ferramenta pode ser utilizada como apoio para:
-
-- revisão diária ou semanal da literatura;
-- identificação de novas publicações;
-- acompanhamento de áreas específicas;
-- preparação de revisões bibliográficas;
-- identificação de tendências temáticas;
-- triagem inicial de artigos;
-- acompanhamento de tópicos relacionados a projetos de pesquisa.
-
-O sistema não substitui estratégias formais de busca bibliográfica utilizadas em revisões sistemáticas.
-
----
-
-# Data source
-
-Bibliographic information is retrieved from:
-
-**PubMed / National Center for Biotechnology Information (NCBI)**
-
-por meio das **NCBI Entrez Programming Utilities (E-utilities)**.
-
-O Radar EM não possui afiliação oficial com o NCBI, NIH ou PubMed.
-
-Resumos e demais conteúdos bibliográficos permanecem sujeitos aos direitos e condições associados aos respectivos autores, periódicos, editoras e bases de dados.
-
----
-
-# Contribuições
-
-Sugestões, correções e contribuições são bem-vindas.
-
-Para mudanças maiores, recomenda-se abrir primeiro uma issue descrevendo a proposta.
-
-Possíveis contribuições incluem:
-
-- novos tópicos;
-- melhoria dos classificadores;
-- novos filtros;
-- novas fontes bibliográficas;
-- melhorias de interface;
-- exportação bibliográfica;
-- testes automatizados;
-- documentação.
+Durante a atualização, requisições são enviadas somente às fontes bibliográficas configuradas e, se ativado, às páginas públicas das editoras.
 
 ---
 
 # Licença
 
-Este projeto pode ser distribuído sob a **MIT License**.
-
-Consulte o arquivo:
-
-```text
-LICENSE
-```
-
-para os termos completos.
+MIT License. Consulte `LICENSE`.
 
 ---
 
@@ -1048,20 +643,4 @@ para os termos completos.
 
 **Levy Bueno Alves**
 
-Pesquisador em bioinformática estrutural, simulação molecular e aprendizado de máquina aplicado a sistemas biomoleculares.
-
----
-
-## Citation
-
-Se o Radar EM for utilizado em um projeto acadêmico, publicação ou material científico, uma forma de citação específica poderá ser adicionada futuramente ao repositório.
-
-Até que uma versão arquivada com DOI seja disponibilizada, recomenda-se citar o repositório do GitHub.
-
----
-
-## Aviso
-
-O Radar EM é uma ferramenta de monitoramento e triagem de literatura.
-
-Os resultados apresentados pelo sistema devem ser avaliados criticamente pelo usuário antes de serem utilizados em contexto científico, clínico ou acadêmico.
+Projeto voltado ao monitoramento e à triagem de literatura científica sobre esclerose múltipla.

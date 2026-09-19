@@ -171,6 +171,8 @@ def parse_pubmed_xml(xml_text: str) -> list[Article]:
             out.append(
                 Article(
                     pmid=pmid,
+                    source_ids={"pubmed": pmid},
+                    discovery_sources=["PubMed"],
                     title=title,
                     abstract=abstract,
                     journal=journal,

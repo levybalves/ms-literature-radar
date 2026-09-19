@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}{{ article.title }} — Radar EM{% endblock %}
+
+{% block content %}
+<header class="detail-header">
+  <a class="back-link" href="{{ url_for('index') }}">← Voltar ao Radar</a>
+  <div class="detail-kicker">{{ topic.icon }} {{ topic.label }}</div>
+  <h1 class="detail-title">{{ article.title }}</h1>
+
+  <div class="detail-badges">
+    <span class="score {% if article.relevance_score >= 80 %}score-high{% endif %}">relevância {{ "%.0f"|format(article.relevance_score) }}</span>
+    <span class="ms-badge {{ article.ms_eligibility }}">
+      {% if article.ms_eligibility == 'high' %}EM alta{% elif article.ms_eligibility == 'moderate' %}EM moderada{% elif article.ms_eligibility == 'pending' %}EM pendente{% elif article.ms_eligibility == 'manual' %}EM manual{% elif article.ms_eligibility == 'excluded' %}EM excluído{% else %}EM não avaliada{% endif %}
+      · {{ "%.1f"|format(article.ms_score) }}
+    </span>
+    {% for src in article.discovery_sources %}<span class="source-badge {% if src == 'PubMed' %}pubmed{% elif src == 'Crossref' %}crossref{% else %}epmc{% endif %}">{{ src }}</span>{% endfor %}
+    {% if article.open_access_status == 'yes' %}<span class="data-badge oa">Open Access</span>{% endif %}
+    {% if article.fulltext_available %}<span class="data-badge">Texto completo indicado</span>{% endif %}
+    {% if article.enriched_at %}<span class="data-badge enriched">Metadados enriquecidos</span>{% endif %}
+  </div>
+
+  <div class="detail-meta-line">
+    {% if article.journal %}<strong>{{ article.journal }}</strong>{% endif %}
+    {% if article.publisher %}<span>{{ article.publisher }}</span>{% endif %}
+    {% if article.pub_date %}<span>Publicado: {{ article.pub_date }}</span>{% endif %}
+    {% if article.online_date and article.online_date != article.pub_date %}<span>Online: {{ article.online_date }}</span>{% endif %}
+  </div>
+  {% if article.authors %}<p class="detail-authors">{{ article.authors|join(", ") }}</p>{% endif %}
+
+  <div class="detail-actions">
+    {% if article.pubmed_url %}<a class="button" href="{{ article.pubmed_url }}" target="_blank" rel="noopener">PubMed ↗</a>{% endif %}
+    {% if article.doi_url %}<a class="button ghost" href="{{ article.doi_url }}" target="_blank" rel="noopener">DOI ↗</a>{% endif %}
+    {% if article.publisher_url %}<a class="button ghost" href="{{ article.publisher_url }}" target="_blank" rel="noopener">Página da editora ↗</a>{% endif %}
+    {% if article.fulltext_urls %}<a class="button ghost" href="{{ article.fulltext_urls[0] }}" target="_blank" rel="noopener">Texto completo ↗</a>{% endif %}
+  </div>
+</header>
+
+<section class="detail-grid">
+  <article class="detail-main panel">
+    <div class="detail-section">
+      <h2>Resumo</h2>
+      {% if article.abstract %}<p class="abstract-full">{{ article.abstract }}</p>{% else %}<p class="muted">Resumo não disponível no registro armazenado.</p>{% endif %}
+    </div>
+
+    <div class="detail-section">
+      <h2>Especificidade para esclerose múltipla</h2>
+      <p class="side-copy">Escore de triagem de escopo: <strong>{{ "%.1f"|format(article.ms_score) }}</strong>. Ele verifica se o trabalho é realmente centrado em EM; não mede qualidade científica.</p>
+      {% if article.ms_evidence %}
+      <ul class="clean-list">{% for item in article.ms_evidence %}<li>{{ item }}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">Nenhuma evidência específica registrada.</p>{% endif %}
+    </div>
+
+    {% if article.mesh_terms %}<div class="detail-section"><h2>MeSH</h2><div class="tags">{% for item in article.mesh_terms %}<span>{{ item }}</span>{% endfor %}</div></div>{% endif %}
+
+    {% if article.keywords or article.author_keywords or article.subjects %}
+    <div class="detail-section">
+      <h2>Palavras-chave e assuntos</h2>
+      {% if article.keywords %}<h3>PubMed</h3><div class="tags">{% for item in article.keywords %}<span>{{ item }}</span>{% endfor %}</div>{% endif %}
+      {% if article.author_keywords %}<h3>Fontes complementares</h3><div class="tags tags-secondary">{% for item in article.author_keywords %}<span>{{ item }}</span>{% endfor %}</div>{% endif %}
+      {% if article.subjects %}<h3>Subjects</h3><div class="types">{% for item in article.subjects %}<span>{{ item }}</span>{% endfor %}</div>{% endif %}
+    </div>
+    {% endif %}
+
+    {% if article.affiliations %}<div class="detail-section"><h2>Afiliações recuperadas</h2><ul class="clean-list">{% for item in article.affiliations %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endif %}
+
+    {% if article.fulltext_urls or article.supplementary_urls %}
+    <div class="detail-section">
+      <h2>Recursos externos</h2>
+      {% if article.fulltext_urls %}<h3>Texto completo</h3><ul class="link-list">{% for item in article.fulltext_urls %}<li><a href="{{ item }}" target="_blank" rel="noopener">{{ item }} ↗</a></li>{% endfor %}</ul>{% endif %}
+      {% if article.supplementary_urls %}<h3>Material suplementar detectado</h3><ul class="link-list">{% for item in article.supplementary_urls %}<li><a href="{{ item }}" target="_blank" rel="noopener">{{ item }} ↗</a></li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endif %}
+  </article>
+
+  <aside class="detail-side">
+    <section class="panel detail-card">
+      <h2>Metadados</h2>
+      <dl class="metadata-list">
+        {% if article.pmid %}<div><dt>PMID</dt><dd>{{ article.pmid }}</dd></div>{% endif %}
+        {% if article.pmc_id %}<div><dt>PMCID</dt><dd>{{ article.pmc_id }}</dd></div>{% endif %}
+        {% if article.doi %}<div><dt>DOI</dt><dd>{{ article.doi }}</dd></div>{% endif %}
+        {% if article.article_type %}<div><dt>Tipo</dt><dd>{{ article.article_type }}</dd></div>{% endif %}
+        <div><dt>Descoberto por</dt><dd>{{ article.discovery_sources|join(', ') if article.discovery_sources else 'não informado' }}</dd></div>
+        <div><dt>Especificidade EM</dt><dd>{{ {'high':'Alta','moderate':'Moderada','pending':'Pendente','excluded':'Excluído','manual':'Importação manual','unknown':'Não avaliada'}.get(article.ms_eligibility, article.ms_eligibility) }} ({{ "%.1f"|format(article.ms_score) }})</dd></div>
+        <div><dt>Acesso aberto</dt><dd>{{ {'yes':'Sim','no':'Não','unknown':'Não determinado'}.get(article.open_access_status, article.open_access_status) }}</dd></div>
+        {% if article.enrichment_sources %}<div><dt>Fontes extras</dt><dd>{{ article.enrichment_sources|join(', ') }}</dd></div>{% endif %}
+        {% if article.enriched_at %}<div><dt>Enriquecido em</dt><dd>{{ article.enriched_at[:16].replace('T', ' ') }}</dd></div>{% endif %}
+      </dl>
+    </section>
+
+    <section class="panel detail-card">
+      <h2>Correspondência temática</h2>
+      <div class="topic-score-list">
+        {% for topic_id, value in article.topic_scores|dictsort(false, 'value')|reverse %}
+          {% if value > 0 %}<div class="topic-score-row"><span>{{ topic_id }}</span><strong>{{ "%.1f"|format(value) }}</strong></div>{% endif %}
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel detail-card">
+      <h2>Atualizar metadados</h2>
+      <p class="side-copy">Consulta fontes complementares ausentes e, opcionalmente, HTML público da editora.</p>
+      <label class="check detail-checkbox"><input id="detailPublisherHtml" type="checkbox" {% if publisher_html_enabled %}checked{% endif %}>Incluir HTML / BeautifulSoup</label>
+      <button id="enrichArticleButton" class="button primary full-button" data-article-id="{{ article.article_id }}">Enriquecer este artigo</button>
+      {% if article.enrichment_notes %}<details class="notes-details"><summary>Notas de enriquecimento</summary><ul class="clean-list small-list">{% for item in article.enrichment_notes %}<li>{{ item }}</li>{% endfor %}</ul></details>{% endif %}
+    </section>
+  </aside>
+</section>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+{% endblock %}

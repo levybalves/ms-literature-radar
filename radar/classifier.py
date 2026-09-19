@@ -19,7 +19,23 @@ def load_topics(path: Path) -> list[dict[str, Any]]:
 def classify(article: Article, topics: list[dict[str, Any]]) -> Article:
     title = _normalize(article.title)
     abstract = _normalize(article.abstract)
-    controlled = _normalize(" ".join(article.mesh_terms + article.keywords))
+    controlled = _normalize(
+        " ".join(
+            article.mesh_terms
+            + article.keywords
+            + article.author_keywords
+            + article.subjects
+        )
+    )
+    enriched_context = _normalize(
+        " ".join(
+            [
+                article.publisher,
+                article.article_type,
+                *article.affiliations,
+            ]
+        )
+    )
 
     topic_scores: dict[str, float] = {}
     matched: dict[str, list[str]] = {}
@@ -36,9 +52,16 @@ def classify(article: Article, topics: list[dict[str, Any]]) -> Article:
             title_hits = _count_phrase(title, needle)
             abstract_hits = _count_phrase(abstract, needle)
             controlled_hits = _count_phrase(controlled, needle)
+            enriched_hits = _count_phrase(enriched_context, needle)
 
-            # Título > MeSH/keywords > resumo. Log1p evita que repetição domine.
-            raw_hits = (title_hits * 3.0) + (controlled_hits * 2.2) + abstract_hits
+            # Título > vocabulário controlado/keywords > metadados enriquecidos > resumo.
+            # Log1p evita que repetição de um mesmo termo domine o escore.
+            raw_hits = (
+                (title_hits * 3.0)
+                + (controlled_hits * 2.2)
+                + (enriched_hits * 1.4)
+                + abstract_hits
+            )
             if raw_hits:
                 score += float(weight) * (1.0 + math.log1p(raw_hits))
                 hits.append(keyword)
@@ -73,7 +96,7 @@ def calculate_relevance(article: Article) -> float:
     best_topic_score = max(article.topic_scores.values(), default=0.0)
     score += min(35.0, best_topic_score * 2.4)
 
-    days_old = _days_old(article.pub_date)
+    days_old = _days_old(article.online_date or article.pub_date)
     if days_old is not None:
         if days_old <= 7:
             score += 20
@@ -86,7 +109,7 @@ def calculate_relevance(article: Article) -> float:
         elif days_old <= 120:
             score += 4
 
-    types = " | ".join(article.publication_types).lower()
+    types = " | ".join(article.publication_types + ([article.article_type] if article.article_type else [])).lower()
     if "meta-analysis" in types or "systematic review" in types:
         score += 10
     elif "randomized controlled trial" in types:
